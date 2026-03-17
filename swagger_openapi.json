@@ -1,0 +1,946 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PHARMAKON API",
+    "description": "API REST du système de gestion pharmaceutique B2B PHARMAKON. Base URL: /api/v1. Authentification: Bearer JWT.",
+    "version": "1.0.0",
+    "contact": { "name": "Équipe PHARMAKON" }
+  },
+  "servers": [
+    { "url": "/api/v1", "description": "Production" }
+  ],
+  "security": [{ "bearerAuth": [] }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "code": { "type": "string", "example": "FORBIDDEN" },
+          "message": { "type": "string" }
+        }
+      },
+      "PaginatedResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "data": { "type": "array", "items": {} },
+          "total": { "type": "integer" },
+          "page": { "type": "integer" },
+          "pages": { "type": "integer" },
+          "limit": { "type": "integer" }
+        }
+      },
+      "EFacture": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "fournisseur_id": { "type": "string", "format": "uuid" },
+          "pharmacie_id": { "type": "string", "format": "uuid", "nullable": true },
+          "numero": { "type": "string", "example": "EF-2026-00042" },
+          "qr_code": { "type": "string", "format": "uuid" },
+          "statut": {
+            "type": "string",
+            "enum": ["CREEE","ENVOYEE","IMPORTEE","VALIDEE","PARTIELLEMENT_ACCEPTEE","REJETEE","PAYEE","DEMANDE_MODIFICATION"]
+          },
+          "montant_ht": { "type": "number", "format": "decimal" },
+          "montant_ttc": { "type": "number", "format": "decimal" },
+          "montant_paye": { "type": "number", "format": "decimal", "nullable": true },
+          "date_envoi": { "type": "string", "format": "date-time", "nullable": true },
+          "date_echeance": { "type": "string", "format": "date-time", "nullable": true },
+          "notes": { "type": "string", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "DetailEFacture": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "produit_nom": { "type": "string" },
+          "dci": { "type": "string", "nullable": true },
+          "dosage": { "type": "string", "nullable": true },
+          "forme": { "type": "string", "nullable": true },
+          "num_enr_cnas": { "type": "string", "nullable": true },
+          "quantite": { "type": "integer" },
+          "prix_achat_ht": { "type": "number" },
+          "prix_vente_ppa": { "type": "number" },
+          "date_peremption": { "type": "string", "format": "date-time", "nullable": true },
+          "numero_lot": { "type": "string", "nullable": true },
+          "tva": { "type": "number", "nullable": true },
+          "ug": { "type": "integer", "default": 0 },
+          "shp": { "type": "number", "nullable": true },
+          "is_para": { "type": "boolean" }
+        }
+      },
+      "BonLivraison": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "efacture_id": { "type": "string", "format": "uuid" },
+          "numero": { "type": "string", "example": "BL-2026-00017" },
+          "type": { "type": "string", "enum": ["BL", "BR"] },
+          "statut": { "type": "string", "enum": ["EN_COURS","COMPLETE","PARTIEL"] },
+          "date_livraison": { "type": "string", "format": "date-time", "nullable": true },
+          "notes": { "type": "string", "nullable": true },
+          "lignes": { "type": "array", "items": { "$ref": "#/components/schemas/LigneBL" } }
+        }
+      },
+      "LigneBL": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "detail_ef_id": { "type": "string", "format": "uuid" },
+          "qte_commandee": { "type": "integer" },
+          "qte_livree": { "type": "integer" },
+          "qte_acceptee": { "type": "integer" }
+        }
+      },
+      "FactureAchat": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "pharmacie_id": { "type": "string", "format": "uuid" },
+          "fournisseur_id": { "type": "string", "format": "uuid", "nullable": true },
+          "efacture_id": { "type": "string", "format": "uuid", "nullable": true },
+          "numero_interne": { "type": "integer" },
+          "numero_fournisseur": { "type": "string", "nullable": true },
+          "numero_bl": { "type": "string", "nullable": true },
+          "type_piece": { "type": "string", "enum": ["FACTURE","BON_LIVRAISON","AVOIR"] },
+          "statut": { "type": "string", "enum": ["BROUILLON","VALIDE","AVOIR","ANNULE"] },
+          "montant_ht": { "type": "number" },
+          "montant_ttc": { "type": "number" },
+          "montant_theorique": { "type": "number" },
+          "montant_reel": { "type": "number", "nullable": true },
+          "difference": { "type": "number", "nullable": true }
+        }
+      },
+      "Vente": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "caisse_id": { "type": "string", "format": "uuid", "nullable": true },
+          "statut": { "type": "string", "enum": ["BROUILLON","VALIDEE","ANNULEE"] },
+          "type_vente": { "type": "string", "enum": ["LIBRE","CHIFA"] },
+          "montant_total": { "type": "number" },
+          "montant_net": { "type": "number" },
+          "date_vente": { "type": "string", "format": "date-time" }
+        }
+      },
+      "StockLot": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "produit_id": { "type": "string", "format": "uuid" },
+          "numero_lot": { "type": "string", "nullable": true },
+          "date_peremption": { "type": "string", "format": "date-time" },
+          "quantite_initiale": { "type": "integer" },
+          "quantite_disponible": { "type": "integer" },
+          "prix_achat_ht": { "type": "number" },
+          "prix_vente_ppa": { "type": "number" }
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "type": { "type": "string" },
+          "titre": { "type": "string" },
+          "message": { "type": "string" },
+          "niveau": { "type": "string", "enum": ["INFO","WARNING","CRITICAL"] },
+          "lue": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CatalogueItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "nom_produit": { "type": "string" },
+          "dci": { "type": "string" },
+          "forme": { "type": "string" },
+          "dosage": { "type": "string" },
+          "conditionnement": { "type": "string" },
+          "num_enregistrement": { "type": "string", "nullable": true },
+          "type_produit": { "type": "string", "enum": ["MEDICAMENT","PARA","COSMETIQUE"] },
+          "ppa": { "type": "number" },
+          "prix_achat": { "type": "number" },
+          "marge_suggeree": { "type": "number" },
+          "disponible": { "type": "boolean" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "tags": ["Authentification"],
+        "summary": "Connexion utilisateur",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["email","password"],
+            "properties": { "email": { "type": "string", "format": "email" }, "password": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Succès", "content": { "application/json": { "schema": { "type": "object",
+            "properties": { "success": { "type": "boolean" }, "access_token": { "type": "string" }, "refresh_token": { "type": "string" },
+              "user": { "type": "object", "properties": { "id": { "type": "string" }, "role": { "type": "string" }, "pharmacie_id": { "type": "string", "nullable": true } } } } } } } },
+          "401": { "description": "Credentials invalides", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": ["Authentification"],
+        "summary": "Renouveler l'access token",
+        "security": [],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["refresh_token"],
+          "properties": { "refresh_token": { "type": "string" } } } } } },
+        "responses": {
+          "200": { "description": "Nouveau token" },
+          "401": { "description": "Token révoqué ou expiré" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["Authentification"],
+        "summary": "Déconnexion (révocation refresh token)",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object",
+          "properties": { "refresh_token": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "Token révoqué" } }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["Authentification"],
+        "summary": "Profil utilisateur courant",
+        "responses": { "200": { "description": "Profil utilisateur" } }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["Authentification"],
+        "summary": "Créer un caissier ou manager (PROPRIETAIRE uniquement)",
+        "responses": { "201": { "description": "Utilisateur créé" }, "403": { "description": "Accès refusé" } }
+      }
+    },
+    "/auth/register-fournisseur": {
+      "post": {
+        "tags": ["Authentification"],
+        "summary": "Inscription publique fournisseur/laboratoire",
+        "security": [],
+        "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "type": "object",
+          "properties": { "nom": { "type": "string" }, "email": { "type": "string" }, "password": { "type": "string" },
+            "type": { "type": "string", "enum": ["FOURNISSEUR","LABORATOIRE"] }, "registre_commerce": { "type": "string", "format": "binary" } } } } } },
+        "responses": { "201": { "description": "Demande soumise, en attente validation admin" } }
+      }
+    },
+    "/efactures": {
+      "get": {
+        "tags": ["E-Facture"],
+        "summary": "Liste des E-Factures (scopée par rôle: fournisseur voit les siennes, pharmacie voit les reçues)",
+        "parameters": [
+          { "name": "statut", "in": "query", "schema": { "type": "string" } },
+          { "name": "q", "in": "query", "schema": { "type": "string" } },
+          { "name": "date_debut", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "date_fin", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": { "200": { "description": "Liste paginée", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaginatedResponse" } } } } }
+      },
+      "post": {
+        "tags": ["E-Facture"],
+        "summary": "Créer une E-Facture (brouillon) — FOURNISSEUR/LABORATOIRE",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object",
+          "required": ["lignes"],
+          "properties": {
+            "pharmacie_id": { "type": "string", "format": "uuid", "nullable": true },
+            "notes": { "type": "string" },
+            "date_echeance": { "type": "string", "format": "date" },
+            "lignes": { "type": "array", "minItems": 1, "items": {
+              "type": "object", "required": ["produit_nom","quantite","prix_achat_ht","prix_vente_ppa"],
+              "properties": {
+                "produit_nom": { "type": "string" },
+                "dci": { "type": "string" },
+                "dosage": { "type": "string" },
+                "num_enr_cnas": { "type": "string" },
+                "quantite": { "type": "integer", "minimum": 1 },
+                "prix_achat_ht": { "type": "number" },
+                "prix_vente_ppa": { "type": "number" },
+                "numero_lot": { "type": "string" },
+                "date_peremption": { "type": "string", "format": "date" },
+                "tva": { "type": "number" },
+                "ug": { "type": "integer", "default": 0 },
+                "shp": { "type": "number" },
+                "is_para": { "type": "boolean", "default": false }
+              }
+            }}
+          }
+        } } } },
+        "responses": { "201": { "description": "E-Facture créée", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EFacture" } } } } }
+      }
+    },
+    "/efactures/{id}": {
+      "get": {
+        "tags": ["E-Facture"],
+        "summary": "Détail complet d'une E-Facture (lignes, BLs, progression)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": { "200": { "description": "EFacture avec lignes, BLs et payment info" } }
+      }
+    },
+    "/efactures/{id}/send": {
+      "post": {
+        "tags": ["E-Facture"],
+        "summary": "Envoyer l'E-Facture (CREEE → ENVOYEE) — FOURNISSEUR",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": { "200": { "description": "Statut ENVOYEE, notification pharmacie déclenchée" } }
+      }
+    },
+    "/efactures/{id}/draft": {
+      "delete": {
+        "tags": ["E-Facture"],
+        "summary": "Supprimer le brouillon (statut CREEE uniquement) — FOURNISSEUR",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": { "200": { "description": "Brouillon supprimé" }, "400": { "description": "Impossible: facture non en brouillon" } }
+      }
+    },
+    "/efactures/{id}/statut": {
+      "patch": {
+        "tags": ["E-Facture"],
+        "summary": "Mettre à jour le statut (pharmacie) — VALIDEE / PARTIELLEMENT_ACCEPTEE / REJETEE / PAYEE",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["statut"],
+          "properties": {
+            "statut": { "type": "string", "enum": ["VALIDEE","PARTIELLEMENT_ACCEPTEE","REJETEE","PAYEE"] },
+            "notes": { "type": "string", "description": "Obligatoire si REJETEE" }
+          }
+        } } } },
+        "responses": { "200": { "description": "Statut mis à jour, notification fournisseur déclenchée" } }
+      }
+    },
+    "/efactures/{id}/demande-modification": {
+      "post": {
+        "tags": ["E-Facture"],
+        "summary": "Pharmacie demande une modification — IMPORTEE → DEMANDE_MODIFICATION",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["notes"],
+          "properties": { "notes": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "Demande envoyée, notification fournisseur" } }
+      }
+    },
+    "/efactures/{id}/repondre-modification": {
+      "post": {
+        "tags": ["E-Facture"],
+        "summary": "Fournisseur répond à la demande de modification — FOURNISSEUR",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object",
+          "properties": { "notes": { "type": "string" }, "lignes": { "type": "array", "items": { "$ref": "#/components/schemas/DetailEFacture" } } } } } } },
+        "responses": { "200": { "description": "Réponse enregistrée, statut retour IMPORTEE" } }
+      }
+    },
+    "/efactures/{id}/validate-stock": {
+      "post": {
+        "tags": ["E-Facture"],
+        "summary": "Valider l'E-Facture et créer les lots de stock directement — Pharmacie",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": { "200": { "description": "Stock créé", "content": { "application/json": { "schema": { "type": "object",
+          "properties": { "stock_created": { "type": "integer" }, "unmatched": { "type": "integer" } } } } } } }
+      }
+    },
+    "/efactures/{id}/mark-paid": {
+      "post": {
+        "tags": ["E-Facture"],
+        "summary": "Marquer comme payée — FOURNISSEUR",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object",
+          "properties": { "montant_paye": { "type": "number" } } } } } },
+        "responses": { "200": { "description": "PAYEE, montant_reste calculé" } }
+      }
+    },
+    "/efactures/qr/{qr_code}": {
+      "get": {
+        "tags": ["E-Facture"],
+        "summary": "Import E-Facture par QR code UUID — Pharmacie",
+        "security": [],
+        "parameters": [{ "name": "qr_code", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": { "200": { "description": "Données E-Facture pré-remplies pour formulaire achat" } }
+      }
+    },
+    "/efactures/import/{code}": {
+      "get": {
+        "tags": ["E-Facture"],
+        "summary": "Import E-Facture par code court (8 caractères) — Pharmacie",
+        "parameters": [{ "name": "code", "in": "path", "required": true, "schema": { "type": "string", "minLength": 8, "maxLength": 8 } }],
+        "responses": { "200": { "description": "Données E-Facture" } }
+      }
+    },
+    "/efactures/recu": {
+      "get": {
+        "tags": ["E-Facture"],
+        "summary": "Liste des E-Factures reçues — Pharmacie (PROPRIETAIRE/MANAGER)",
+        "responses": { "200": { "description": "E-Factures reçues paginées" } }
+      }
+    },
+    "/efactures/{id}/bl": {
+      "post": {
+        "tags": ["E-Facture"],
+        "summary": "Créer un Bon de Livraison (BL) — FOURNISSEUR",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["lignes"],
+          "properties": {
+            "date_livraison": { "type": "string", "format": "date" },
+            "notes": { "type": "string" },
+            "lignes": { "type": "array", "items": { "type": "object", "required": ["detail_ef_id","qte_livree"],
+              "properties": { "detail_ef_id": { "type": "string", "format": "uuid" }, "qte_livree": { "type": "integer" } } } }
+          }
+        } } } },
+        "responses": { "201": { "description": "BL créé, statut EF recalculé" } }
+      }
+    },
+    "/efactures/{id}/bl/{bl_id}": {
+      "patch": {
+        "tags": ["E-Facture"],
+        "summary": "Mettre à jour un BL (statut + quantités) — FOURNISSEUR",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "bl_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": { "200": { "description": "BL mis à jour" } }
+      }
+    },
+    "/efactures/{id}/bl/{bl_id}/accept-pharmacy": {
+      "patch": {
+        "tags": ["E-Facture"],
+        "summary": "Pharmacie accepte un BL fournisseur et crée les lots de stock — Pharmacie",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "bl_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object",
+          "properties": { "lignes": { "type": "array", "items": { "type": "object",
+            "properties": { "ligne_bl_id": { "type": "string", "format": "uuid" }, "qte_acceptee": { "type": "integer" } } } } } } } } },
+        "responses": { "200": { "description": "BL accepté, StockLots créés" } }
+      }
+    },
+    "/efactures/{id}/br-pharmacy": {
+      "post": {
+        "tags": ["E-Facture"],
+        "summary": "Pharmacie crée un Bon de Réception (BR) et met à jour le stock immédiatement",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["lignes_recues"],
+          "properties": { "notes": { "type": "string" },
+            "lignes_recues": { "type": "array", "items": { "type": "object", "required": ["detail_ef_id","qte_recue"],
+              "properties": { "detail_ef_id": { "type": "string", "format": "uuid" }, "qte_recue": { "type": "integer" } } } }
+          }
+        } } } },
+        "responses": { "201": { "description": "BR créé, stock mis à jour", "content": { "application/json": { "schema": { "type": "object",
+          "properties": { "br_numero": { "type": "string" }, "stock_created": { "type": "integer" }, "unmatched": { "type": "integer" } } } } } } }
+      }
+    },
+    "/achats": {
+      "get": {
+        "tags": ["Achats"],
+        "summary": "Liste des factures d'achat — ADMIN/PROPRIETAIRE/MANAGER",
+        "parameters": [
+          { "name": "statut", "in": "query", "schema": { "type": "string", "enum": ["BROUILLON","VALIDE","AVOIR","ANNULE"] } },
+          { "name": "fournisseur_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "type_piece", "in": "query", "schema": { "type": "string", "enum": ["FACTURE","BON_LIVRAISON","AVOIR"] } },
+          { "name": "date_debut", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "date_fin", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Liste paginée des achats avec totaux agrégés" } }
+      },
+      "post": {
+        "tags": ["Achats"],
+        "summary": "Créer une facture d'achat (BROUILLON) — PROPRIETAIRE/MANAGER",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["type_piece"],
+          "properties": {
+            "fournisseur_id": { "type": "string", "format": "uuid" },
+            "efacture_id": { "type": "string", "format": "uuid", "nullable": true },
+            "type_piece": { "type": "string", "enum": ["FACTURE","BON_LIVRAISON","AVOIR"] },
+            "numero_fournisseur": { "type": "string" },
+            "numero_bl": { "type": "string" },
+            "date_facture": { "type": "string", "format": "date" },
+            "montant_reel": { "type": "number" },
+            "remise": { "type": "number" },
+            "lignes": { "type": "array", "items": { "type": "object" } }
+          }
+        } } } },
+        "responses": { "201": { "description": "Facture créée en BROUILLON" } }
+      }
+    },
+    "/achats/{id}": {
+      "get": {
+        "tags": ["Achats"],
+        "summary": "Détail d'une facture d'achat",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": { "200": { "description": "Facture avec lignes + totaux" } }
+      },
+      "patch": {
+        "tags": ["Achats"],
+        "summary": "Modifier une facture (BROUILLON uniquement)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": { "200": { "description": "Facture mise à jour" }, "400": { "description": "Non modifiable: statut != BROUILLON" } }
+      },
+      "delete": {
+        "tags": ["Achats"],
+        "summary": "Supprimer une facture (BROUILLON uniquement) — PROPRIETAIRE",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": { "200": { "description": "Supprimée" } }
+      }
+    },
+    "/achats/{id}/validate": {
+      "post": {
+        "tags": ["Achats"],
+        "summary": "Valider une facture → VALIDE + création StockLots — PROPRIETAIRE/MANAGER",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "description": "Validée, lots de stock créés", "content": { "application/json": { "schema": { "type": "object",
+            "properties": { "lots_crees": { "type": "integer" }, "difference": { "type": "number" } } } } } },
+          "400": { "description": "Différence non nulle ou lignes manquantes" }
+        }
+      }
+    },
+    "/achats/{id}/details": {
+      "post": {
+        "tags": ["Achats"],
+        "summary": "Ajouter une ligne de détail à la facture (BROUILLON uniquement)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object",
+          "required": ["produit_id","quantite","prix_achat_ht","prix_vente_ppa"],
+          "properties": {
+            "produit_id": { "type": "string", "format": "uuid" },
+            "quantite": { "type": "integer" },
+            "prix_achat_ht": { "type": "number" },
+            "prix_vente_ppa": { "type": "number" },
+            "shp": { "type": "number" },
+            "tva": { "type": "number" },
+            "numero_lot": { "type": "string" },
+            "date_peremption": { "type": "string", "format": "date" }
+          }
+        } } } },
+        "responses": { "201": { "description": "Ligne ajoutée, montant_theorique recalculé" } }
+      }
+    },
+    "/ventes": {
+      "get": {
+        "tags": ["Ventes"],
+        "summary": "Liste des ventes — ADMIN/PROPRIETAIRE/MANAGER/CAISSIER",
+        "responses": { "200": { "description": "Liste paginée" } }
+      }
+    },
+    "/ventes/libre": {
+      "post": {
+        "tags": ["Ventes"],
+        "summary": "Créer une vente libre (comptoir cash) — PROPRIETAIRE/MANAGER/CAISSIER",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["lignes"],
+          "properties": {
+            "caisse_id": { "type": "string", "format": "uuid" },
+            "remise": { "type": "number" },
+            "notes": { "type": "string" },
+            "lignes": { "type": "array", "items": { "type": "object", "required": ["stock_lot_id","quantite"],
+              "properties": { "stock_lot_id": { "type": "string", "format": "uuid" }, "quantite": { "type": "integer" }, "remise_ligne": { "type": "number" } } } }
+          }
+        } } } },
+        "responses": { "201": { "description": "Vente créée" } }
+      }
+    },
+    "/ventes/chifa": {
+      "post": {
+        "tags": ["Ventes"],
+        "summary": "Créer une vente Chifa (tiers-payant CNAS) — PROPRIETAIRE/MANAGER/CAISSIER",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object",
+          "required": ["no_fact_chifa","taux_pec","centre","lignes"],
+          "properties": {
+            "no_fact_chifa": { "type": "string", "description": "Numéro facture CNAS extrait via bridge" },
+            "no_bordereau": { "type": "string" },
+            "taux_pec": { "type": "integer", "enum": [80, 100], "description": "80=standard, 100=ALD" },
+            "centre": { "type": "string", "description": "Code centre CNAS" },
+            "rang_ad": { "type": "string", "description": "Rang bénéficiaire (analytique seulement, pas de PII)" },
+            "date_soins": { "type": "string", "format": "date" },
+            "montant_assure_total": { "type": "number", "description": "Somme AS = Σ (PPA - τ×TR) × qte" },
+            "montant_officine_total": { "type": "number", "description": "Somme PS = Σ τ×TR × qte" },
+            "montant_maj": { "type": "number", "description": "20% TR pour médicaments locaux" },
+            "montant_maj_fae": { "type": "number", "description": "FAE (5 DA)" },
+            "lignes": { "type": "array", "items": { "type": "object" } }
+          }
+        } } } },
+        "responses": { "201": { "description": "Vente Chifa créée, stock décrémenté" } }
+      }
+    },
+    "/ventes/{id}/validate": {
+      "post": {
+        "tags": ["Ventes"],
+        "summary": "Valider une vente → stock décrémenté — PROPRIETAIRE/MANAGER/CAISSIER",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": { "200": { "description": "Vente validée" } }
+      }
+    },
+    "/ventes/{id}/cancel": {
+      "post": {
+        "tags": ["Ventes"],
+        "summary": "Annuler une vente validée (restore stock) — PROPRIETAIRE/MANAGER",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object",
+          "required": ["motif"],
+          "properties": { "motif": { "type": "string" } }
+        } } } },
+        "responses": { "200": { "description": "Vente annulée, stock restauré" } }
+      }
+    },
+    "/stock/lots": {
+      "get": {
+        "tags": ["Stock"],
+        "summary": "Liste des lots de stock (FEFO) — Tous rôles pharmacie",
+        "parameters": [
+          { "name": "produit_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "alerte", "in": "query", "schema": { "type": "string", "enum": ["bas","rupture","expiration"] } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Liste des StockLots avec tri FEFO" } }
+      }
+    },
+    "/stock/alerts": {
+      "get": {
+        "tags": ["Stock"],
+        "summary": "Alertes stock (bas, rupture, expiration <30j)",
+        "responses": { "200": { "description": "Dashboard alertes: {ruptures, stock_bas, expiration_proche, lots_total}" } }
+      }
+    },
+    "/stock/corrections": {
+      "post": {
+        "tags": ["Stock"],
+        "summary": "Corriger manuellement un lot de stock — PROPRIETAIRE/MANAGER",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object",
+          "required": ["stock_lot_id","nouvelle_qte","motif"],
+          "properties": {
+            "stock_lot_id": { "type": "string", "format": "uuid" },
+            "nouvelle_qte": { "type": "integer", "minimum": 0 },
+            "motif": { "type": "string" }
+          }
+        } } } },
+        "responses": { "201": { "description": "Correction enregistrée (log: qte_avant, qte_apres, delta)" } }
+      }
+    },
+    "/caisse": {
+      "get": {
+        "tags": ["Caisse"],
+        "summary": "Liste des sessions de caisse",
+        "responses": { "200": { "description": "Historique des sessions" } }
+      }
+    },
+    "/caisse/current": {
+      "get": {
+        "tags": ["Caisse"],
+        "summary": "Session de caisse en cours",
+        "responses": { "200": { "description": "Session courante ou null" } }
+      }
+    },
+    "/caisse/open": {
+      "post": {
+        "tags": ["Caisse"],
+        "summary": "Ouvrir une session de caisse",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object",
+          "required": ["fond_ouverture"],
+          "properties": { "fond_ouverture": { "type": "number" } }
+        } } } },
+        "responses": { "201": { "description": "Session ouverte" } }
+      }
+    },
+    "/caisse/{id}/close": {
+      "post": {
+        "tags": ["Caisse"],
+        "summary": "Fermer une session de caisse",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object",
+          "properties": { "fond_fermeture": { "type": "number" } }
+        } } } },
+        "responses": { "200": { "description": "Session fermée, écart calculé" } }
+      }
+    },
+    "/notifications": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Liste des notifications de la pharmacie (paginées)",
+        "parameters": [
+          { "name": "unread_only", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Notifications paginées" } }
+      }
+    },
+    "/notifications/count": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Compteur de notifications non lues (pour polling)",
+        "responses": { "200": { "description": "{unread: N}", "content": { "application/json": { "schema": { "type": "object",
+          "properties": { "unread": { "type": "integer" } } } } } } }
+      }
+    },
+    "/notifications/read-all": {
+      "post": {
+        "tags": ["Notifications"],
+        "summary": "Marquer toutes les notifications comme lues",
+        "responses": { "200": { "description": "Nombre de notifications marquées lues" } }
+      }
+    },
+    "/notifications/{id}/read": {
+      "post": {
+        "tags": ["Notifications"],
+        "summary": "Marquer une notification comme lue",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": { "200": { "description": "Notification lue" } }
+      }
+    },
+    "/notifications/suppliers/pending": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Demandes de connexion fournisseur en attente — Pharmacie",
+        "responses": { "200": { "description": "Liste des demandes de connexion fournisseur" } }
+      }
+    },
+    "/notifications/suppliers/{id}/accept": {
+      "patch": {
+        "tags": ["Notifications"],
+        "summary": "Accepter une demande de connexion fournisseur",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": { "200": { "description": "Connexion établie, fournisseur_pharmacie.actif=true" } }
+      }
+    },
+    "/notifications/suppliers/{id}/reject": {
+      "patch": {
+        "tags": ["Notifications"],
+        "summary": "Refuser une demande de connexion fournisseur",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": { "200": { "description": "Demande refusée" } }
+      }
+    },
+    "/fournisseur-portail/dashboard": {
+      "get": {
+        "tags": ["Portail Fournisseur"],
+        "summary": "KPIs du fournisseur — CA, top pharmacies, top produits, taux d'acceptation",
+        "parameters": [
+          { "name": "debut", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "fin", "in": "query", "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": { "200": { "description": "Dashboard KPIs", "content": { "application/json": { "schema": { "type": "object",
+          "properties": {
+            "ca_total": { "type": "number" },
+            "montant_paye_total": { "type": "number" },
+            "montant_restant": { "type": "number" },
+            "taux_acceptation": { "type": "number" },
+            "nb_factures_total": { "type": "integer" },
+            "nb_factures_validees": { "type": "integer" },
+            "nb_precommandes_attente": { "type": "integer" },
+            "top_pharmacies": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "nom": { "type": "string" }, "montant": { "type": "number" } } } },
+            "top_produits": { "type": "array", "items": { "type": "object", "properties": { "nom": { "type": "string" }, "quantite": { "type": "integer" }, "montant": { "type": "number" } } } },
+            "monthly_trend": { "type": "array", "items": { "type": "object", "properties": { "month": { "type": "string" }, "montant": { "type": "number" } } } }
+          }
+        } } } } }
+      }
+    },
+    "/fournisseur-portail/notifs": {
+      "get": {
+        "tags": ["Portail Fournisseur"],
+        "summary": "Notifications fournisseur (events EF lifecycle)",
+        "responses": { "200": { "description": "Notifications paginées + compteur non-lus" } }
+      }
+    },
+    "/fournisseur-portail/notifs/lue": {
+      "patch": {
+        "tags": ["Portail Fournisseur"],
+        "summary": "Marquer notifications fournisseur comme lues",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object",
+          "properties": { "ids": { "type": "array", "items": { "type": "string", "format": "uuid" } } } } } } },
+        "responses": { "200": { "description": "Notifications lues" } }
+      }
+    },
+    "/fournisseur-portail/clients": {
+      "get": {
+        "tags": ["Portail Fournisseur"],
+        "summary": "Liste des pharmacies clientes liées au fournisseur",
+        "responses": { "200": { "description": "Liste des clients" } }
+      }
+    },
+    "/fournisseur-portail/clients/pending": {
+      "get": {
+        "tags": ["Portail Fournisseur"],
+        "summary": "Demandes de connexion fournisseur en attente (côté fournisseur)",
+        "responses": { "200": { "description": "Demandes en attente" } }
+      }
+    },
+    "/fournisseur-portail/clients/request": {
+      "post": {
+        "tags": ["Portail Fournisseur"],
+        "summary": "Envoyer une demande de connexion à une pharmacie",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object",
+          "required": ["pharmacie_email"],
+          "properties": { "pharmacie_email": { "type": "string", "format": "email" } }
+        } } } },
+        "responses": { "200": { "description": "Demande envoyée, notification créée pour la pharmacie" } }
+      }
+    },
+    "/fournisseur-portail/catalogue": {
+      "get": {
+        "tags": ["Portail Fournisseur"],
+        "summary": "Liste du catalogue produits fournisseur",
+        "responses": { "200": { "description": "Catalogue avec filtres DCI, type, disponibilité" } }
+      },
+      "post": {
+        "tags": ["Portail Fournisseur"],
+        "summary": "Créer ou mettre à jour un article du catalogue",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CatalogueItem" } } } },
+        "responses": { "201": { "description": "Article créé/mis à jour" } }
+      }
+    },
+    "/fournisseur-portail/catalogue/{cid}": {
+      "delete": {
+        "tags": ["Portail Fournisseur"],
+        "summary": "Supprimer un article du catalogue",
+        "parameters": [{ "name": "cid", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": { "200": { "description": "Article supprimé" } }
+      }
+    },
+    "/fournisseur-portail/pre-commandes": {
+      "get": {
+        "tags": ["Portail Fournisseur"],
+        "summary": "Liste des pré-commandes reçues",
+        "responses": { "200": { "description": "Pré-commandes avec statut (EN_ATTENTE/ACCEPTEE/REFUSEE/CONVERTIE)" } }
+      }
+    },
+    "/fournisseur-portail/pre-commandes/{id}/respond": {
+      "post": {
+        "tags": ["Portail Fournisseur"],
+        "summary": "Répondre à une pré-commande (accepter ou refuser)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object",
+          "required": ["decision"],
+          "properties": {
+            "decision": { "type": "string", "enum": ["ACCEPTER","REFUSER"] },
+            "notes": { "type": "string" },
+            "convertir_efacture": { "type": "boolean", "description": "Si true, crée un brouillon E-Facture à partir de la pré-commande" }
+          }
+        } } } },
+        "responses": { "200": { "description": "Réponse enregistrée" } }
+      }
+    },
+    "/chifa": {
+      "get": {
+        "tags": ["CHIFA / CNAS"],
+        "summary": "Recherche nomenclature médicaments remboursables CNAS",
+        "parameters": [
+          { "name": "q", "in": "query", "schema": { "type": "string" }, "description": "Nom commercial, DCI, num_enr ou code EAN" }
+        ],
+        "responses": { "200": { "description": "Médicaments correspondants avec tarif_ref, ppa_plafond, is_local, remboursable" } }
+      }
+    },
+    "/chifa/import": {
+      "post": {
+        "tags": ["CHIFA / CNAS"],
+        "summary": "Import bulk de la nomenclature CNAS depuis fichier XLSX — ADMIN_PHARMAKON",
+        "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "type": "object",
+          "properties": { "file": { "type": "string", "format": "binary", "description": "Remboursable_Drugs_from_CNAS.xlsx" } } } } } },
+        "responses": { "200": { "description": "Import réussi, nombre de médicaments importés" } }
+      }
+    },
+    "/dashboard": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "KPIs agrégés de la pharmacie — PROPRIETAIRE/MANAGER",
+        "responses": { "200": { "description": "CA, ventes du jour, alertes stock, top produits, évolution mensuelle" } }
+      }
+    },
+    "/produits": {
+      "get": {
+        "tags": ["Produits"],
+        "summary": "Catalogue produits de la pharmacie",
+        "responses": { "200": { "description": "Liste des produits avec stock disponible" } }
+      },
+      "post": {
+        "tags": ["Produits"],
+        "summary": "Créer un produit dans le catalogue — PROPRIETAIRE/MANAGER",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object",
+          "required": ["nom","type_produit"],
+          "properties": {
+            "nom": { "type": "string" },
+            "dci": { "type": "string" },
+            "dosage": { "type": "string" },
+            "forme": { "type": "string" },
+            "conditionnement": { "type": "string" },
+            "num_enr_cnas": { "type": "string" },
+            "code_barre": { "type": "string" },
+            "ppa": { "type": "number" },
+            "shp": { "type": "number" },
+            "tarif_ref": { "type": "number" },
+            "is_remboursable": { "type": "boolean" },
+            "is_psychotrope": { "type": "boolean" },
+            "qte_alerte": { "type": "integer" },
+            "type_produit": { "type": "string", "enum": ["MEDICAMENT","PARA","COSMETIQUE"] }
+          }
+        } } } },
+        "responses": { "201": { "description": "Produit créé" } }
+      }
+    },
+    "/fournisseurs": {
+      "get": {
+        "tags": ["Fournisseurs"],
+        "summary": "Liste des fournisseurs liés à la pharmacie",
+        "responses": { "200": { "description": "Liste des fournisseurs" } }
+      },
+      "post": {
+        "tags": ["Fournisseurs"],
+        "summary": "Créer/lier un fournisseur — PROPRIETAIRE",
+        "responses": { "201": { "description": "Fournisseur créé et lié" } }
+      }
+    },
+    "/audit": {
+      "get": {
+        "tags": ["Audit"],
+        "summary": "Journal d'audit des actions — PROPRIETAIRE/MANAGER",
+        "parameters": [
+          { "name": "action", "in": "query", "schema": { "type": "string" } },
+          { "name": "entity_type", "in": "query", "schema": { "type": "string" } },
+          { "name": "user_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "date_debut", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "date_fin", "in": "query", "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": { "200": { "description": "Logs d'audit paginés" } }
+      }
+    },
+    "/print/{type}/{id}": {
+      "get": {
+        "tags": ["Impression"],
+        "summary": "Rendu HTML pour impression (ticket, facture, BL, rapport)",
+        "parameters": [
+          { "name": "type", "in": "path", "required": true, "schema": { "type": "string", "enum": ["vente","achat","efacture","bl","avoir"] } },
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": { "200": { "description": "HTML document prêt à imprimer ou envoyer vers imprimante ESC/POS" } }
+      }
+    }
+  },
+  "tags": [
+    { "name": "Authentification" },
+    { "name": "E-Facture" },
+    { "name": "Achats" },
+    { "name": "Ventes" },
+    { "name": "Stock" },
+    { "name": "Caisse" },
+    { "name": "Notifications" },
+    { "name": "Portail Fournisseur" },
+    { "name": "CHIFA / CNAS" },
+    { "name": "Dashboard" },
+    { "name": "Produits" },
+    { "name": "Fournisseurs" },
+    { "name": "Audit" },
+    { "name": "Impression" }
+  ]
+}
